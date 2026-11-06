@@ -1,0 +1,34 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: app
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: shortener
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U app -d shortener"]
+      interval: 5s
+      retries: 10
+
+  api:
+    image: ghcr.io/${GH_OWNER}/shortener-api:latest
+    build: ./api
+    environment:
+      DATABASE_URL: postgres://app:${DB_PASSWORD}@db:5432/shortener?sslmode=disable
+    depends_on:
+      db:
+        condition: service_healthy
+
+  ui:
+    image: ghcr.io/${GH_OWNER}/shortener-ui:latest
+    build: ./ui
+    ports:
+      - "80:80"
+    depends_on:
+      - api
+
+volumes:
+  pgdata:
